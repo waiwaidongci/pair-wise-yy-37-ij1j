@@ -9,7 +9,11 @@ class DomainError(Exception):
 class ValidationError(DomainError): kind=ErrorKind.VALIDATION
 class NotFoundError(DomainError): kind=ErrorKind.NOT_FOUND
 class PermissionDenied(DomainError): kind=ErrorKind.FORBIDDEN
-class ConflictError(DomainError): kind=ErrorKind.CONFLICT
+class ConflictError(DomainError):
+    kind=ErrorKind.CONFLICT
+    def __init__(self,message,detail=None):
+        super().__init__(message)
+        self.detail=detail or {}
 SEVERITIES=['low', 'medium', 'high', 'critical']; STATES=['draft', 'submitted', 'inspection', 'correction', 'approved']; ROLES=['applicant', 'inspector', 'compliance_manager', 'viewer']
 @dataclass(frozen=True)
 class Item:

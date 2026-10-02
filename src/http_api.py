@@ -71,7 +71,10 @@ def make_handler(service: Service, static_dir: str):
                 status = 400
             else:
                 status = 500
-            self._json(status, {"error": exc.__class__.__name__, "message": str(exc)})
+            payload = {"error": exc.__class__.__name__, "message": str(exc)}
+            if isinstance(exc, ConflictError) and getattr(exc, "detail", None):
+                payload.update(exc.detail)
+            self._json(status, payload)
 
         def do_GET(self) -> None:
             try:
@@ -84,11 +87,40 @@ def make_handler(service: Service, static_dir: str):
                     actor, role = self._identity()
                     del actor
                     self._json(200, {"items": service.list_items(role)})
+                elif path == "/api/batches":
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"batches": service.list_batches(role)})
+                elif path == "/api/conflicts":
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"conflicts": service.list_conflicts(role)})
+                elif path.startswith("/api/batches/") and path.endswith("/conflicts"):
+                    batch_no = path.split("/")[3]
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"conflicts": service.list_conflicts(role, batch_no)})
+                elif path.startswith("/api/batches/"):
+                    batch_no = path.split("/")[3]
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, service.get_batch(batch_no, role))
                 elif path.startswith("/api/items/") and path.endswith("/records"):
                     item_id = int(path.split("/")[3])
                     actor, role = self._identity()
                     del actor
                     self._json(200, {"records": service.list_records(item_id, role)})
+                elif path.startswith("/api/items/") and path.endswith("/ledger"):
+                    item_id = int(path.split("/")[3])
+                    actor, role = self._identity()
+                    del actor
+                    ledger = service.get_ledger(item_id, role)
+                    self._json(200, {"ledger": ledger})
+                elif path.startswith("/api/items/") and path.endswith("/quota-adjustments"):
+                    item_id = int(path.split("/")[3])
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, {"adjustments": service.list_adjustments(item_id, role)})
                 elif path.startswith("/api/items/"):
                     item_id = int(path.rsplit("/", 1)[-1])
                     actor, role = self._identity()
@@ -110,6 +142,12 @@ def make_handler(service: Service, static_dir: str):
                 body = self._body()
                 if path == "/api/items":
                     self._json(201, service.create_item(body, actor, role))
+                elif path == "/api/batches":
+                    result = service.accept_batch(body, actor, role)
+                    status = 201 if result["created"] else 200
+                    self._json(status, result["batch"])
+                elif path == "/api/backfill-ledger":
+                    self._json(200, service.backfill_all(actor, role))
                 elif path.startswith("/api/items/") and path.endswith("/records"):
                     item_id = int(path.split("/")[3])
                     self._json(201, service.add_record(item_id, body, actor, role))
@@ -119,6 +157,15 @@ def make_handler(service: Service, static_dir: str):
                     expected = body.get("expected_version")
                     self._json(200, service.transition(
                         item_id, target, expected, actor, role))
+                elif path.startswith("/api/items/") and path.endswith("/quota-adjustments"):
+                    item_id = int(path.split("/")[3])
+                    self._json(200, service.adjust_quota(item_id, body, actor, role))
+                elif path.startswith("/api/items/") and path.endswith("/backfill-ledger"):
+                    item_id = int(path.split("/")[3])
+                    self._json(200, service.backfill_ledger(item_id, actor, role))
+                elif path.startswith("/api/batches/") and path.endswith("/recover"):
+                    batch_no = path.split("/")[3]
+                    self._json(200, service.recover_batch(batch_no, actor, role))
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
