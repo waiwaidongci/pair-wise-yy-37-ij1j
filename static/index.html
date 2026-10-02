@@ -1,1 +1,9 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>空气污染源许可与合规检查</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#17212b}pre{background:#f4f7f9;padding:1rem;overflow:auto}button{padding:.55rem 1rem}</style></head><body><h1>空气污染源许可与合规检查</h1><p>管理设施、排放口、治理设备、现场检查、整改和许可续期</p><p>申报量超过许可量或检查发现高严重度问题时提高优先级；存在未关闭整改时不能批准。</p><button onclick="loadItems()">刷新列表</button><pre id="out">使用X-Actor和X-Role请求头调用接口。</pre><script>async function loadItems(){const r=await fetch('/api/items',{headers:{'X-Actor':'demo','X-Role':'viewer'}});document.getElementById('out').textContent=JSON.stringify(await r.json(),null,2)}</script></body></html>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>空气污染源许可与合规检查</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem;color:#17212b}pre{background:#f4f7f9;padding:1rem;overflow:auto}button{padding:.55rem 1rem;margin-right:.4rem}</style></head><body><h1>空气污染源许可与合规检查</h1><p>排污许可 → 配额台账 → 排放批单入账 → 检查/整改 → 审计链，一条可恢复的入账流程。</p><p>同一批单号只接收第一次结果，晚到内容留作冲突；额度调整先到生效，后到者看到当前版本与差异；写入失败按批单号恢复；旧数据按已批准许可回填。</p><button onclick="loadItems()">许可列表</button><button onclick="loadBatches()">排放批单</button><button onclick="loadConflicts()">批单冲突</button><button onclick="loadLedger()">配额台账</button><pre id="out">使用X-Actor和X-Role请求头调用接口。</pre><script>
+const H={'X-Actor':'demo','X-Role':'viewer'};
+async function show(r){document.getElementById('out').textContent=JSON.stringify(await r.json(),null,2)}
+function loadItems(){return show(fetch('/api/items',{headers:H}))}
+function loadBatches(){return show(fetch('/api/emission-batches',{headers:H}))}
+function loadConflicts(){return show(fetch('/api/batch-conflicts',{headers:H}))}
+function loadLedger(){return show(fetch('/api/ledger',{headers:H}))}
+loadItems();
+</script></body></html>

@@ -20,3 +20,7 @@ def validate_transition(current,target):
     if not can_transition(current,target): raise ConflictError(f"不能从{current}转换到{target}")
 def completion_blockers(target,open_records): return ["仍有未关闭事项"] if target in TERMINAL_STATES and open_records>0 else []
 def role_for_transition(target): return set(TRANSITION_ROLES.get(target,[]))
+LEDGER_KINDS=['grant','adjustment','usage']; BATCH_STATUSES=['received','posted','failed']; BATCH_POSTED=BATCH_STATUSES[1]; BATCH_FAILED=BATCH_STATUSES[2]
+LEDGER_ROLES=set(['applicant','compliance_manager']); POST_ROLES=set(['applicant','inspector','compliance_manager']); RECOVER_ROLES=set(['applicant','inspector','compliance_manager']); CONFLICT_VIEW_ROLES=set(['inspector','compliance_manager','viewer']); LEDGER_VIEW_ROLES=set(['applicant','inspector','compliance_manager','viewer'])
+GRANT_SOURCE='approved_permit'; USAGE_SOURCE_PREFIX='emission_batch:'; BATCH_SOURCE='园区回传'
+BATCH_NOTE='同一批单号只接收第一次结果；晚到且内容不同的批单留作冲突，不覆盖已入账数据'

@@ -65,6 +65,10 @@ def make_handler(service: Service, static_dir: str):
                 status = 403
             elif isinstance(exc, ConflictError):
                 status = 409
+                if getattr(exc, "details", None):
+                    self._json(status, {"error": exc.__class__.__name__,
+                                        "message": str(exc), "details": exc.details})
+                    return
             elif isinstance(exc, ValueError):
                 status = 422
             elif isinstance(exc, DomainError):
@@ -87,8 +91,18 @@ def make_handler(service: Service, static_dir: str):
                 elif path.startswith("/api/items/") and path.endswith("/records"):
                     item_id = int(path.split("/")[3])
                     actor, role = self._identity()
+                    kind = parse_qs(urlparse(self.path).query).get("kind", [None])[0]
+                    self._json(200, {"records": service.list_records(item_id, role, kind)})
+                elif path.startswith("/api/items/") and path.endswith("/ledger"):
+                    item_id = int(path.split("/")[3])
+                    actor, role = self._identity()
                     del actor
-                    self._json(200, {"records": service.list_records(item_id, role)})
+                    self._json(200, {"ledger": service.list_ledger(item_id, role)})
+                elif path.startswith("/api/items/") and path.endswith("/quota"):
+                    item_id = int(path.split("/")[3])
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, service.quota_summary(item_id, role))
                 elif path.startswith("/api/items/"):
                     item_id = int(path.rsplit("/", 1)[-1])
                     actor, role = self._identity()
@@ -98,6 +112,22 @@ def make_handler(service: Service, static_dir: str):
                     actor, role = self._identity()
                     del actor
                     self._json(200, {"events": service.audit(role)})
+                elif path == "/api/ledger":
+                    actor, role = self._identity()
+                    del actor
+                    query = parse_qs(urlparse(self.path).query)
+                    item_id = int(query["item_id"][0]) if "item_id" in query else None
+                    self._json(200, {"ledger": service.list_ledger(item_id, role)})
+                elif path == "/api/emission-batches":
+                    actor, role = self._identity()
+                    del actor
+                    status = parse_qs(urlparse(self.path).query).get("status", [None])[0]
+                    self._json(200, {"batches": service.list_batches(role, status)})
+                elif path == "/api/batch-conflicts":
+                    actor, role = self._identity()
+                    del actor
+                    batch_no = parse_qs(urlparse(self.path).query).get("batch_no", [None])[0]
+                    self._json(200, {"conflicts": service.list_conflicts(role, batch_no)})
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
@@ -119,6 +149,17 @@ def make_handler(service: Service, static_dir: str):
                     expected = body.get("expected_version")
                     self._json(200, service.transition(
                         item_id, target, expected, actor, role))
+                elif path.startswith("/api/items/") and path.endswith("/quota/adjust"):
+                    item_id = int(path.split("/")[3])
+                    self._json(200, service.adjust_quota(item_id, body, actor, role))
+                elif path == "/api/emission-batches":
+                    result = service.post_emission_batch(body, actor, role)
+                    self._json(200 if result.get("replay") else 201, result)
+                elif path.startswith("/api/emission-batches/") and path.endswith("/recover"):
+                    batch_no = path.split("/")[3]
+                    self._json(200, service.recover_batch(batch_no, actor, role))
+                elif path == "/api/ledger/backfill":
+                    self._json(200, service.backfill_ledger(actor, role))
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
